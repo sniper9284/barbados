@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Меню караоке</title>
+    {% load static %}  <!-- Эта строка была добавлена -->
+    <link rel="stylesheet" href="{% static 'style.css' %}">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="{% static 'js/search.js' %}"></script>
+</head>
+<body>
+
+<div class="search-form">
+    <h3>Поиск работает по исполнителю и названию песни.</h3>
+    <form method="GET" action=".">
+        <input type="text" id="search" name="q" value="{{ request.GET.q|default_if_none:'' }}" placeholder="Введите название или исполнителя"/>
+        <button type="submit" class="butt">Найти</button>
+    </form>
+
+    <form id="telegramForm">
+    <label for="stol">Номер стола:</label><br>
+    <input id="stol" name="stol"><br>
+    <label for="treck">Номер песни:</label><br>
+    <input type="number" id="treck" name="treck"><br><br>
+    <button class="butt" type="submit">Заказать</button><br>
+</form>
+    <p id="resultMessage"></p>
+</div>
+
+
+
+{% if musics %}
+    <table>
+        <thead>
+        <tr>
+            <th>Номер</th>
+            <th>Название</th>
+            <th>Исполнитель</th>
+            <th>Бэк</th>
+            <th>Тип</th>
+        </tr>
+        </thead>
+        <tbody>
+        {% for music in musics %}
+            <tr>
+                <td>{{ music.number }}</td>
+                <td>{{ music.title }}</td>
+                <td>{{ music.artist }}</td>
+                <td>{{ music.back }}</td>
+                <td>{{ music.type }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Пагинация -->
+    <div style="margin-top: 20px; text-align: center;">
+        {% if is_paginated %}
+            <span>
+                {% if page_obj.has_previous %}
+                    <a href="?page={{ page_obj.previous_page_number }}">Предыдущая страница</a>
+                {% endif %}
+                Страница {{ page_obj.number }} из {{ page_obj.paginator.num_pages }}
+                {% if page_obj.has_next %}
+                      <a href="?page={{ page_obj.next_page_number }}">Следующая страница</a>
+                {% endif %}
+            </span>
+        {% endif %}
+    </div>
+{% else %}
+    <p>Нет записей.</p>
+{% endif %}
+
+<script>
+const form = document.getElementById('telegramForm');
+
+form.addEventListener('submit', async function(event) {
+    event.preventDefault();
+
+    const { botToken, chatId } = await loadConfig();
+    const stol = document.getElementById('stol').value;
+    const treck = document.getElementById('treck').value;
+    const currentTimeInMoscow = getCurrentTimeInMoscow();
+    const message = `Стол №: ${stol}\nПесня №: ${treck}\nВремя заказа: ${currentTimeInMoscow}`;
+
+    await sendDataToTelegram(botToken, chatId, message);
+});
+
+async function sendDataToTelegram(token, chatId, message) {
+    try {
+        const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage?chat_id=${chatId}&text=${encodeURIComponent(message)}`);
+        // Найти элемент <p> с id='resultMessage'
+        const resultParagraph = document.getElementById('resultMessage');
+
+        if (!response.ok) {
+            throw new Error(response.statusText);
+        }
+        resultParagraph.textContent = 'Сообщение успешно отправлено!';
+    } catch (error) {
+        console.error("Ошибка при отправке сообщения:", error);
+    }
+}
+
+function getCurrentTimeInMoscow() {
+    const date = new Date();
+    const offset = date.getTimezoneOffset(); // смещение от UTC в минутах
+    const moscowOffset = 180; // Московское время отличается от UTC на 3 часа
+    const timeInMoscow = new Date(date.getTime() + (moscowOffset * 60 * 1000));
+
+    let hours = timeInMoscow.getUTCHours();
+    let minutes = timeInMoscow.getUTCMinutes();
+    let seconds = timeInMoscow.getUTCSeconds();
+
+    hours = String(hours).padStart(2, '0');
+    minutes = String(minutes).padStart(2, '0');
+    seconds = String(seconds).padStart(2, '0');
+
+    return `${hours}:${minutes}:${seconds}`;
+}
+
+async function loadConfig() {
+    const config = {
+        botToken: '7554159851:AAG4gnJE9EXTgQr3fiS0v8ch2BY_qq17k0c',
+        chatId: '1146706867'
+    };
+
+    return config;
+}
+</script>
+
+</body>
+</html>
